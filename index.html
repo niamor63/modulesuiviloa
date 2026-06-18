@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#101820" />
+    <title>Suivi Kilometrage LOA</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">LOA voiture</p>
+          <h1>Suivi kilometrage</h1>
+          <p class="hero-text">
+            Compare ton kilometrage reel a ton forfait LOA et anticipe le depassement avant la fin du contrat.
+          </p>
+        </div>
+        <div class="hero-card" aria-live="polite">
+          <span class="hero-card-label">Projection fin contrat</span>
+          <strong id="projectedMileage">0 km</strong>
+          <span id="projectedDelta" class="status-pill">A configurer</span>
+        </div>
+      </section>
+
+      <section class="grid layout-grid">
+        <form id="settingsForm" class="panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Contrat LOA</h2>
+              <p id="dataStorageStatus" class="panel-subtitle">Chargement des donnees...</p>
+            </div>
+            <button class="ghost-button" type="button" id="resetButton">Reinitialiser</button>
+          </div>
+
+          <label>
+            Vehicule
+            <input id="vehicleName" name="vehicleName" placeholder="Mercedes Classe A" autocomplete="off" />
+          </label>
+
+          <div class="two-columns">
+            <label>
+              Debut contrat
+              <input id="startDate" name="startDate" type="date" required />
+            </label>
+            <label>
+              Fin contrat
+              <input id="endDate" name="endDate" type="date" required />
+            </label>
+          </div>
+
+          <div class="two-columns">
+            <label>
+              Km au depart
+              <input id="startMileage" name="startMileage" type="number" min="0" step="1" required />
+            </label>
+            <label>
+              Plafond LOA
+              <input id="limitMileage" name="limitMileage" type="number" min="1" step="1" required />
+            </label>
+          </div>
+
+          <button class="primary-button" type="submit">Enregistrer le contrat</button>
+        </form>
+
+        <form id="readingForm" class="panel accent-panel">
+          <div class="panel-heading">
+            <h2>Nouveau releve</h2>
+          </div>
+
+          <div class="two-columns">
+            <label>
+              Date
+              <input id="readingDate" name="readingDate" type="date" required />
+            </label>
+            <label>
+              Kilometrage actuel
+              <input id="readingMileage" name="readingMileage" type="number" min="0" step="1" required />
+            </label>
+          </div>
+
+          <label>
+            Note
+            <input id="readingNote" name="readingNote" placeholder="Plein, revision, trajet..." autocomplete="off" />
+          </label>
+
+          <button class="primary-button" type="submit">Ajouter le releve</button>
+        </form>
+      </section>
+
+      <section class="panel home-assistant-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Home Assistant</h2>
+            <p class="panel-subtitle">Recupere automatiquement le compteur depuis un capteur Home Assistant.</p>
+          </div>
+          <span id="homeAssistantStatus" class="status-pill">Non configure</span>
+        </div>
+
+        <form id="homeAssistantForm">
+          <div class="home-assistant-grid">
+            <label>
+              Adresse Home Assistant
+              <input id="homeAssistantUrl" name="url" type="url" placeholder="http://homeassistant.local:8123" required />
+            </label>
+            <label>
+              Jeton longue duree
+              <input id="homeAssistantToken" name="token" type="password" placeholder="Jeton Home Assistant" autocomplete="new-password" />
+            </label>
+            <label>
+              Entite kilometrage
+              <input id="homeAssistantEntity" name="entityId" placeholder="sensor.mercedes_odometer" autocomplete="off" />
+            </label>
+          </div>
+
+          <div class="button-row">
+            <button class="primary-button inline-button" type="submit">Enregistrer et tester</button>
+            <button class="ghost-button" type="button" id="discoverHomeAssistantButton">Detecter les capteurs</button>
+            <button class="ghost-button" type="button" id="syncHomeAssistantButton">Importer le kilometrage</button>
+          </div>
+        </form>
+
+        <div id="homeAssistantCandidates" class="sensor-candidates" hidden></div>
+        <div id="homeAssistantMessage" class="message-box">
+          Le jeton reste stocke uniquement sur le serveur local de cette application.
+        </div>
+      </section>
+
+      <section class="stats-grid" aria-live="polite">
+        <article class="stat-card">
+          <span>Kilometrage actuel</span>
+          <strong id="currentMileage">0 km</strong>
+          <small id="lastReadingDate">Aucun releve</small>
+        </article>
+        <article class="stat-card">
+          <span>Marge restante</span>
+          <strong id="remainingMileage">0 km</strong>
+          <small id="remainingPerMonth">0 km / mois</small>
+        </article>
+        <article class="stat-card daily-card">
+          <span>Maximum par jour</span>
+          <strong id="remainingPerDay">0 km / jour</strong>
+          <small id="dailyLimitDetail">Pour rester dans le forfait</small>
+        </article>
+        <article class="stat-card">
+          <span>Rythme reel</span>
+          <strong id="actualMonthlyPace">0 km / mois</strong>
+          <small id="allowedMonthlyPace">0 km / mois autorises</small>
+        </article>
+        <article class="stat-card">
+          <span>Temps restant</span>
+          <strong id="remainingTime">0 mois</strong>
+          <small id="contractProgressLabel">0% du contrat</small>
+        </article>
+        <article class="stat-card cost-card">
+          <span>Cout depassement estime</span>
+          <strong id="overageCost">0,00 €</strong>
+          <small id="overageBreakdown">20% inclus dans le premier palier</small>
+        </article>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <h2>Avancement</h2>
+          <span id="globalStatus" class="status-pill">A configurer</span>
+        </div>
+        <div class="meter-block">
+          <div class="meter-label">
+            <span>Contrat</span>
+            <strong id="contractPercent">0%</strong>
+          </div>
+          <div class="meter">
+            <span id="contractMeter"></span>
+          </div>
+        </div>
+        <div class="meter-block">
+          <div class="meter-label">
+            <span>Kilometrage consomme</span>
+            <strong id="mileagePercent">0%</strong>
+          </div>
+          <div class="meter">
+            <span id="mileageMeter"></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Cibles mensuelles</h2>
+            <p id="monthlyTargetsSummary" class="panel-subtitle">Configure le contrat pour calculer les objectifs.</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Mois</th>
+                <th>Km max sur le mois</th>
+                <th>Compteur cible fin de mois</th>
+                <th>Jours pris en compte</th>
+              </tr>
+            </thead>
+            <tbody id="monthlyTargetsTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel recovery-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Plan rattrapage 3 mois</h2>
+            <p id="recoveryTargetsSummary" class="panel-subtitle">Configure le contrat pour calculer le plan de retour a la cible.</p>
+          </div>
+          <span id="recoveryStatus" class="status-pill">A configurer</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Mois</th>
+                <th>Km max rattrapage</th>
+                <th>Compteur cible fin de mois</th>
+                <th>Jours</th>
+              </tr>
+            </thead>
+            <tbody id="recoveryTargetsTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <h2>Historique</h2>
+          <button class="ghost-button" type="button" id="exportButton">Exporter CSV</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Kilometrage</th>
+                <th>Variation</th>
+                <th>Note</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="readingsTable"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="./app.js" defer></script>
+  </body>
+</html>
